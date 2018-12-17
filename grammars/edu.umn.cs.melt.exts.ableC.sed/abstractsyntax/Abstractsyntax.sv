@@ -21,10 +21,11 @@ synthesized attribute comds :: [Pair<Commands Commands>];
 
 
   abstract production sedProgram
-  top::Expr ::= cl::ComdList
+  top::Expr ::= cl::ComdList inf::String outf::String
   {
     local input::[Pair<Expr Expr>] = convertComds(cl.comds, []);
-
+    local infile::String = inf;
+    local outfile::String = outf;
     local d::Decl =
       variableDecls(nilStorageClass(), nilAttribute(),
         tagReferenceTypeExpr(nilQualifier(), structSEU(),
@@ -49,10 +50,11 @@ synthesized attribute comds :: [Pair<Commands Commands>];
     ({    $Decl{d};
 
           struct SedProgram sed_program = {
-                  cmds, 3
+                  cmds, $intLiteralExpr{length(input)}
           };
-
-          run_sed_program(&sed_program, stdin, stdout);})
+          FILE *fptr;
+          FILE *fred;
+          run_sed_program(&sed_program, fptr, fred, $name{infile}, $name{outfile});})
     };
     forwards to fwrd;
   }

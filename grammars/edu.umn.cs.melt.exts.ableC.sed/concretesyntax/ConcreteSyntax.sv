@@ -13,13 +13,13 @@ terminal SearchExpr_t 's';
 terminal DeleteExpr_t 'd';
 terminal AppendExpr_t 'a';
 terminal SemiColon_t ';';
-
+terminal Greater_t '>';
 
 
 concrete production sedScript_c
-top::AssignExpr_c ::= 'sed' '{' cl::SedCommandList_c '}'
+top::AssignExpr_c ::= 'sed' '{' cl::SedCommandList_c '}' infile::StringConstant_t '>' outfile::StringConstant_t
 {
-  top.ast = sedProgram(cl.ast_ComdList, location=top.location);
+  top.ast = sedProgram(cl.ast_ComdList, infile.lexeme, outfile.lexeme, location=top.location);
 }
 
 

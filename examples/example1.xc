@@ -48,58 +48,49 @@ int main(void)
         sed {
                 1 d;
                 2~3 a ": append this to certain lines";
-                5 s "\\(he[a-z][a-z]o\\)" "replace with this";
-        };
-
-        /* your extension would then generate the following code using the
-         * algebraic datatypes extension, which would then generated plain C code */
-        //{
-        //SedCommand cmds[] = {
-        //        {LineAddr(1), Delete()},
-        //        {LineRangeAddr(2, 3), Append(": append this to certain lines")},
-        //        {AnyAddr(), Append(": append this to all lines")},
-        //};
-        //SedProgram sed_program = {
-        //        cmds, 3
-        //};
-        //run_sed_program(&sed_program, stdin, stdout);
-        //}
+                s "he[a-z]lo" "replace with this";
+		            5 a "append this to line 5";
+		            8 a ":append second line to line 8";
+        } "input.txt" > "output.txt";
 
         return 0;
 }
 
-void run_sed_program(SedProgram *prog, FILE *in, FILE *out)
+void run_sed_program(SedProgram *prog, FILE *in, FILE *out, char *inputfile, char *outputfile)
 {
         char *pattern_space = NULL;
         ssize_t pattern_space_len;
         size_t buf_size = 0;
         int line_number = 1;
+        in = fopen(inputfile, 'r');
+        out = fopen(outputfile, 'w');
+        if (in) {
+              while ((pattern_space_len = getline(&pattern_space, &buf_size, in)) > 0) {
 
-        /* read one line at a time, storing the line in the pattern space */
-        while ((pattern_space_len = getline(&pattern_space, &buf_size, in)) > 0) {
-                /* remove trailing "\n" */
-                pattern_space[pattern_space_len-1] = '\0';
+                      pattern_space[pattern_space_len-1] = '\0';
 
-                bool skip_to_next_cycle = false;
+                      bool skip_to_next_cycle = false;
 
-                /* for each command in the program, run it if the address
-                 * matches this line */
-                for (int i=0; i < prog->num_cmds && !skip_to_next_cycle; ++i) {
-                        if (addr_matches(prog->cmds[i].addr, line_number,
-                                                pattern_space)) {
-                                execute_sed_command(prog->cmds[i].cmd,
-                                        &pattern_space, &pattern_space_len,
-                                        &buf_size, &skip_to_next_cycle);
-                        }
-                }
 
-                /* print the pattern space */
-                if (!skip_to_next_cycle) {
-                        fprintf(out, "%s\n", pattern_space);
-                }
+                      for (int i=0; i < prog->num_cmds && !skip_to_next_cycle; ++i) {
+                              if (addr_matches(prog->cmds[i].addr, line_number,
+                                                      pattern_space)) {
+                                      execute_sed_command(prog->cmds[i].cmd,
+                                              &pattern_space, &pattern_space_len,
+                                              &buf_size, &skip_to_next_cycle);
+                              }
+                      }
 
-                ++line_number;
-        }
+
+                      if (!skip_to_next_cycle) {
+                              fprintf(out, "%s\n", pattern_space);
+                      }
+
+                      ++line_number;
+              }
+      fclose(out);
+      fclose(in);
+    }
 }
 
 bool addr_matches(SedAddress *addr, int line_number, char *pattern_space)
@@ -126,11 +117,28 @@ void execute_sed_command(SedSingleCommand *cmd, char **pattern_space,
                         *skip_to_next_cycle = true;
                 }
                 &Append(s) -> {
-                        execute_append(s, pattern_space, pattern_space_len,
+                  			//*buf_size = strlen(s)-2;
+                  			char *s1 = malloc(strlen(s)-2);
+                  			for (int i = 0; i < strlen(s)-2; i++)
+                  			{
+                           s1[i] = s[i+1];
+                  			}
+                        execute_append(s1, pattern_space, pattern_space_len,
                                         buf_size);
                 }
                 &Search(s,r) -> {
-                        execute_search(s, r, pattern_space, pattern_space_len,
+			                  //*buf_size = strlen(s);
+                        char* s1 = malloc(strlen(s)-2);
+                        for (int i = 0; i < strlen(s)-2; i++)
+                        {
+                           s1[i] = s[i+1];
+                        }
+                        char* r1 = malloc(strlen(r)-2);
+                        for (int i = 0; i < strlen(r)-2; i++)
+                        {
+                           r1[i] = r[i+1];
+                        }
+                        execute_search(s1, r1, pattern_space, pattern_space_len,
                                         buf_size);
                 }
         }
@@ -154,10 +162,6 @@ void execute_append(char *s, char **pattern_space, ssize_t *pattern_space_len,
 void execute_search(char *s, char *r, char **pattern_space, ssize_t *pattern_space_len,
         size_t *buf_size)
 {
-        /* TODO: make sure *buf_size is big enough
-        (*pattern_space)[*pattern_space_len - 1] = '\n';
-        strcpy(*pattern_space + *pattern_space_len, s);
-        *pattern_space_len += strlen(s); */
         regex_t re;
         size_t nmatch = 1;
         regmatch_t pmatch[1];
@@ -166,14 +170,14 @@ void execute_search(char *s, char *r, char **pattern_space, ssize_t *pattern_spa
         if (0 != res) {
           (*pattern_space) = (*pattern_space);
         } else {
-          char * st;
-          strncpy(st, *pattern_space, pmatch[0].rm_so-1);
-          char * ed;
-          strncpy(ed, *pattern_space+pmatch[0].rm_so-1, strlen(*pattern_space)-pmatch[0].rm_eo-1);
-          strcpy(st, r);
-          strcpy(st, ed);
+          char * st = malloc(pmatch[0].rm_so+1+strlen(r)+strlen(*pattern_space)-pmatch[0].rm_eo);
+          strncpy(st, *pattern_space, pmatch[0].rm_so);
+          char * ed = malloc(strlen(*pattern_space)-pmatch[0].rm_eo+1);
+          strncpy(ed, *pattern_space+pmatch[0].rm_eo, strlen(*pattern_space)-pmatch[0].rm_eo);
+          strcat(st, r);
+     	  strcat(st, ed);
           *pattern_space = st;
-          *pattern_space_len += strlen(s)-(pmatch[0].rm_eo-pmatch[0].rm_so);
+          *pattern_space_len += strlen(st);
         }
 
 }

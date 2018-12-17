@@ -5,7 +5,7 @@
 
 
 int main() {
- sed {  1d;
+ sed {  1 d;
 	4 ~ 5 d;
 	/"b"/ d;
 	s /'1'/('a')/;
